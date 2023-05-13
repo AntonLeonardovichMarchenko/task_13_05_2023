@@ -1,0 +1,220 @@
+import copy
+
+# класс личный счёт ======================================================
+class Account:
+    account = 0
+
+    @staticmethod
+    def plusSumm(summ):
+        Account.account += summ
+
+    @staticmethod
+    def minusSumm(summ):
+        Account.account -= summ
+
+
+    @staticmethod
+    def addMoney(key):
+        summ = 0
+        while True:
+            try:
+                summ = int(input("give the sum for your account >> "))
+                if key == '+':
+                    Account.plusSumm(summ)
+                    break
+                elif key == '-':
+                    Account.minusSumm(summ)
+                    break
+            except Exception as ex:
+                print(ex)
+
+        return Account.account
+
+    @staticmethod
+    def minusMoney(money):
+        Account.minusSumm(money)
+        return Account.account
+
+
+# Класс продукты =========================================================
+class Product:
+
+    # На основе ProdElement (аргумент makeIt) создаётся запись о продукте
+    # формата prodPattern.
+    # ======================== Формат prodPattern =======================================
+    #                "name", "add_rem", "price", "quantity", "full_price", "descriptor"
+    #    prodPattern  0       1           2       3           4             5
+
+    @staticmethod
+    def makeIt(ProdElement):
+
+        prodObj = {}
+
+        if ProdElement[2] == None:
+            ProdElement[2] = 0
+
+        if ProdElement[3] == None:
+            ProdElement[3] = 0
+
+        ProdElement[4] = ProdElement[2] * ProdElement[3]
+
+        # реализация формата prodPattern
+        prodObj["name"] = ProdElement[0]
+        prodObj["add_rem"] = ProdElement[1]
+        prodObj["price"] = ProdElement[2]
+        prodObj["quantity"] = ProdElement[3]
+        prodObj["full_price"] = ProdElement[4]
+        prodObj["descriptor"] = ProdElement[5]
+
+        return prodObj
+
+# отвечает за формирование списка НАЛИЧНЫХ продуктов и за диалог
+# с пользователем: предложение НАЛИЧНЫХ продуктов, предложение пополнения
+# счёта (возможна покупка в долг - когда у пользователя продукты
+# уже в корзине, а пополнять счёт он не желает), выход из программы.
+# ========================================================================
+class ProdManager:
+
+    @property
+    def fpi(self):
+        return self.fHandle
+
+    @fpi.setter
+    def fpi(self, flagOpen):
+        try:
+            self.fHandle.close()
+        except:
+            pass
+        finally:
+            self.fHandle = open(self.FPI, flagOpen)
+
+    # исходный список, на основе которого заполняется корзина продуктов ==
+    # ====================================================================
+
+    def readFrom(self):
+
+        self.fpi = 'r'
+        print(f'readFrom {self.fpi}')
+
+        self.prodList = list()
+
+        while True:
+
+            # чтение строки БЕЗ последнего символа
+            p0 = self.fpi.readline()[:-1]  # имя
+            if p0 == '':                   # или признак конца файла
+                break
+            p1 = self.fpi.readline()[:-1]  # add/rem
+
+            px = self.fpi.readline()[:-1]  # цена: читается из файла строкой,
+            p2 = int(px)                   # потом преобразуется в int
+
+            p3 = 0                         # количество
+            p4 = 0                         # полная цена
+
+            p5 = self.fpi.readline()[:-1]  # описание
+            self.fpi.readline()  # читается строка - разделитель
+
+            product = Product.makeIt([p0, p1, p2, p3, p4, p5])
+            self.prodList.append(product)
+
+
+    # ====================================================================
+    # в ходе заполнения корзины можно отказаться от ранее выбранного
+    # товара. Здесь читается ВЕСЬ список продуктов, влючая как товар для
+    # выбора, так и товар для отказа. Записи как для выбора, так и для
+    # отказа (покупатель передумал и решил отказаться от выбранного товара)
+    # находятся в одном файле. Для покупателя различаются описаниями
+    # (вроде как 'взял' - 'отказался'), для программы - значением атрибута
+    # add/rem и ценой. Формат записи о товаре в файле ОБЩИЙ
+    # (для упрощения процедуры чтения) и нет смысла в записях об удалении
+    # из корзины фантазировать со значением цены =========================
+
+    def addToBasket(self):
+
+
+        # для заполнения корзины прочитывается запись, выбор или отказ от
+        # ранее выбранного (взял и тут же передумал и отказался)
+        # inBack == yes идут в общий список self.products,
+        # ненужные товары inBack == no просто пропускаются, если ранее они
+        # НЕ БЫЛИ уже включены в self.products ===========================
+
+        for p in self.prodList:
+            inBack = input(f"{p['descriptor']} (yes/no) > ")
+            # отказ от товара ВСЁ РАВНО размещает соответствующую
+            # запись в self.products
+            if inBack == 'yes':     # добавление записи (товар взят/возвращён)
+                print('yes')
+                self.products.append(copy.deepcopy(p))
+            elif inBack == 'no': # продукт НЕ нужен
+                print('no')
+            else:
+                print('addToBasket ???')  # вообще не понятно, что это было
+
+    # ====================================================================
+
+    def addAccount(self):
+        addAcc = "yes"
+        while addAcc == 'yes':
+            print('add account ...')
+            self.account = Account.addMoney()
+            addAcc = input(f"do you want to add your account (yes/no) > ")
+
+
+        print(f'your account is {self.account}')
+
+
+    # метод меню =========================================================
+
+    def DoIt(self):
+        answer = ''
+        while answer != '3':
+            print(f'1: пополнить счёт')
+            print(f'2: добавить в корзину')
+            print(f'3: хватит выбирать')
+            print(f'4: кончать работу')
+
+
+            answer = input('>>> ')
+            if answer == "1":
+                print("answer == 1")
+                self.account = Account.addMoney('+')
+
+            elif answer == "2":
+                print("answer == 2")
+                self.addToBasket()   # поместить товары в корзину
+
+            elif answer == "3":
+                print("answer == 3")
+                return True     # это возвращение в PersonalAccount
+
+            elif answer == "4":
+                print("answer == 4")
+                return False    # это конец работы
+
+            else:
+                print("incorrect answer") # непонятно, что это было
+
+    # ====================================================================
+
+    def __init__(self, nameSource):
+
+        print('ProdManager...__init__')
+
+        self.choice = None
+
+        self.prodList = None    # prodList обнуляется в readFrom
+        self.products = list()
+
+        self.account = 0
+
+        self.fHandle = None
+        self.ns = nameSource
+        self.FPI = self.ns
+        self.readFrom()
+
+
+
+
+
+
