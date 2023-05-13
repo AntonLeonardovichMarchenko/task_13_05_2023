@@ -1,0 +1,378 @@
+# программа 'Личный счёт':
+#
+# Пользователь запускает программу у него на счету 0 руб
+# Программа предлагает следующие варианты действий (основное меню):
+#
+# - пополнить счет (при выборе этого пункта пользователю предлагается ввести
+# сумму на сколько пополнить счет, после того как пользователь вводит сумму
+# она добавляется к счету, снова попадаем в основное меню)
+# - совершить покупку (при выборе этого пункта пользователю предлагается ввести
+# сумму покупки, если она больше количества денег на счете, то сообщаем что
+# денег не хватает и переходим в основное меню, если денег достаточно предлагаем
+# пользователю ввести название покупки, например (еда), снимаем деньги со счета,
+# сохраняем покупку в историю, выходим в основное меню)
+# - история покупок (выводим историю покупок пользователя (название и сумму),
+# возвращаемся в основное меню)
+# - выход (завершение цикла, выход из меню)
+#
+# Особенности реализации программы.
+# - пополнение (и дополнение) счёта производится:
+#     непосредственно после запуска программы,
+#     при выборе пункта меню,
+#     в ситуации, когда сумма не счету превосходит сумму, которая была потрачена
+# - при отказе пополнить счёт выполнение программы прекращается.
+# - имеется 'список продуктов' - C:\PythonDrom\Tests_2022\xxxTests\sourceFile.txt.
+#     это описание того, что имеется на складе там же список продуктов, от которых
+#     можно отказаться при выборе (покупатель выбрал товар, положил в корзинку,
+#     передумал и выкинул). Это возможно, если товар ЕЩЁ НЕ БЫЛ ОПЛАЧЕН. При
+#     отказе от товара из списка выбранных покупателем товаров выбирается и
+#     удаляется первый из ранее выбранных (найденных в корзине) товаров.
+# - по соответствующему пункту меню (хватит выбирать) производится окончательное
+#   оформление покупки (из корзины выкидываются товары, от которых покупатель
+#   отказался), уточнение количества выбранного товара, расчёт общей стоимости
+#   корзины, возможно, предложение о пополнении счёта.
+# - выход в главное меню с возможность пополнения корзины и прочей суетой,
+#   предусмотренной в программе.
+# - при завершении работы (выход из программы при отказе пополнения счёта
+#   или выборе соответствующего пункта меню) в файл
+#   C:\PythonDrom\Tests_2022\xxxTests\pacFile.txt записывается история
+#   покупки, которая обновляется при очередном запуске программы.
+
+fileNameSource = "C:\\PythonDrom\\Tests_2022\\xxxTests\\sourceFile.txt"
+fileNamePack = "C:\\PythonDrom\\Tests_2022\\xxxTests\\pacFile.txt"
+
+
+from elements import Account
+from elements import Product
+from elements import ProdManager
+
+# ========================================================================
+
+# Класс ConvenienceFood - продукты, готовые к употреблению ===============
+class ConvenienceFood:
+
+# ========================================================================
+    # Свойство применяется для выбранных товаров из списка
+    # PersonalAccount.xFood. Здесь важны как setter,
+    # так и property свойства. В property (атрибут result) этого свойства
+    # записывается информация о результате применения свойства. И эту информацию
+    # можно получить БЕЗ каких-либо дополнительных действий
+    # (просто обратившись к property свойства) ===============================
+    @property
+    def qQuantity(self):
+        # print(' <<<<< property qQuantity is here')
+        return self.prodQuantity
+
+    @qQuantity.setter
+    def qQuantity(self, product):
+        # print('>>>>> qQuantity.setter is here')
+        while True:
+            # количество товара ПОКА спрашивается для товара,
+            # от которого сразу не отказались и возможно, НЕ откажутся.
+            # Для записей отказа  количество возвращаемого товара ПОКА не
+            # принципиально. Всё равно удаляется первая встреченная в
+            # в списке запись.
+            if product['add_rem'] == 'add':
+                pq = input(f"give the quantity of product {product['name']}, {product['price']} >> ")
+                try:
+                    self.prodQuantity = int(pq)
+                except Exception as e:
+                    print(e)
+                else:
+                    break
+            else:
+                self.prodQuantity = 0
+
+    # =====================================================================
+    @property
+    def fFood(self):
+        return self.result
+
+    @fFood.setter
+    def fFood(self, product):
+
+        if product["add_rem"] == 'add':
+            PersonalAccount.xFood.append(product)
+            self.result = product['name'] + ' append: success'
+
+        elif product["add_rem"] == 'rem':
+            for xf in PersonalAccount.xFood:
+                if xf["name"] == product["name"]:
+                    try:
+                        PersonalAccount.xFood.remove(xf)
+                        self.result = product['name'] + ' remove: success'
+                    except:
+                        self.result = product['name'] + ' remove: fall'
+
+            if product["add_rem"] == 'rem':
+                try:
+                    PersonalAccount.xFood.remove(product)
+                    try:
+                        self.result += product['name'] + ' (add_rem) remove: success'
+                    except:
+                        self.result = ' (add_rem) remove: success'
+                except:
+                    try:
+                        self.result += product['name'] + ' (add_rem) remove: fall'
+                    except:
+                        self.result = ' (add_rem) remove: fall'
+
+# ========================================================================
+# Метод FoodFormer добавляет и удаляет (если сможет!) продукты из списка
+# PersonalAccount.xFood. Метод также возвращает информацию о результатах
+# применения в качестве возвращаемого значения и её надо
+# дополнительно перехватить и сохранить как значение переменной.
+# И в чём разница между методом и свойством?
+# Метод (обычный) - один и НАДО специально получить и сохранить
+# результат его выполнения в качестве значения переменной.
+# Свойство - два метода (get, set) и НЕ НАДО специально сохранять
+# результатов выполнения метода set.
+# Хотя этот результат вытолнения set фиксируется в get
+# (чем не возвращаемое значение обычного метода?)
+# ========================================================================
+
+    def FoodFormer(self, product):
+
+        if product['add_rem'] == 'add':
+            PersonalAccount.xFood.append(product)
+            self.result = product['name'] + ' append: success'
+
+        # отказ от ранее выбранного товара
+        # (из PersonalAccount.xFood удаляется ПЕРВАЯ встреченная запись)
+        # при отказе от ранее оплаченного товара деньги НЕ ВОЗВРАЩАЮТСЯ.
+        elif product['add_rem'] == 'rem':
+            for xf in PersonalAccount.xFood:
+                if xf['name'] == product['name']:
+                    try:
+                        PersonalAccount.xFood.remove(xf)
+                        self.result = product['name'] + ' remove: success'
+                    except:
+                        self.result = product['name'] + ' remove: fall'
+
+            if product["add_rem"] == 'rem':
+                try:
+                    PersonalAccount.xFood.remove(product)
+                    try:
+                        self.result += product['name'] + ' (add_rem) remove: success'
+                    except:
+                        self.result = ' (add_rem) remove: success'
+                except:
+                        try:
+                            self.result += product['name'] + ' (add_rem) remove: fall'
+                        except:
+                            self.result = ' (add_rem) remove: fall'
+
+        return self.result
+
+# ========================================================================
+
+    # инициализатор объекта класса ConvenienceFood.
+    # self.result единственный атрибут объекта класса
+    def __init__(self):
+        self.result = None
+        self.prodQuantity = None
+
+    # ====================================================================
+
+class PersonalAccount:
+
+    xFood = []
+
+    @property
+    def fpi(self):
+        return self.fHandle
+
+    @fpi.setter
+    def fpi(self, flagOpen):
+        try:
+            self.fHandle.close()
+        except:
+            pass
+        finally:
+            self.fHandle = open(self.FPI, flagOpen)
+
+    # ========================================================================
+
+    # Это ЗАПИСЬ в файл ==================================================
+    # из списка xFood производится запись в файл
+    # fileName = "C:\\PythonDrom\\Tests_2022\\xxxTests\\pacFile.txt",
+    # представленный СВОЙСТВОМ fpi в объекте класса PersonalAccount
+    # (для main и PersonalAccount - это просто name) - в одну строку,
+    # с пробелом в качестве разлелителя между элементами записи  =========
+    def writeIN(self):
+
+        self.fpi = 'w'
+
+        # запись в файл выбранных и оплаченных товаров
+        for xf in PersonalAccount.xFood:
+            # print(xf, file = self.fpi)
+            # self.fpi.write('***\n')
+            self.fpi.write(
+                xf['name'] + '\n' +
+                xf['add_rem'] + '\n' +  # здесь это поле всегда 'add'
+                str(xf['price']) + '\n' +
+                str(xf['quantity']) + '\n' +
+                str(xf['full_price']) + '\n' +
+                xf['descriptor'] + '\n' +
+                ' ' + '\n'
+            )
+    # ====================================================================
+
+    # Это чтение из файла уже закупленных товаров в список products ======
+    def readFrom(self):
+
+        products = list()
+
+        self.fpi = 'r'
+        while True:
+
+            # чтение строки БЕЗ последнего символа
+            p0 = self.fpi.readline()[:-1]       #   имя
+            if p0 == '':                        # или конец файла
+                break
+            p1 = self.fpi.readline()[:-1]       #   add/rem
+            p2 = self.fpi.readline()[:-1]       #   цена
+            p3 = self.fpi.readline()[:-1]       #   количество
+            p4 = self.fpi.readline()[:-1]       #   полная цена
+            p5 = self.fpi.readline()[:-1]       #   описание
+            self.fpi.readline()                 # читается строка - разделитель
+
+            # здесь из файла методом readline читается по 7 строк.
+            # На конце файла возвращается ПУСТАЯ строка.
+            # Поэтому для определения конца файла достаточно проверить
+            # первую строку. Это делается СРАЗУ после прочтения очередной
+            # строки с именем продукта. Уже тогда понятно, что это конец.
+
+            # если файл ещё не прочитан до конца - производится процедура
+            # обычного создания объекта и его добавления в список products.
+            product = Product.makeIt([p0, p1, int(p2), int(p3), int(p4), p5])
+            products.append(product)
+
+        return products
+
+    # ====================================================================
+
+    # выбор продуктов ====================================================
+    # метод FoodMaster! Проще не бывает ==================================
+    def FoodMaster(self):
+        # кидает товары из prodManager.products в PersonalAccount.xFood
+        for prod in self.prodManager.products:
+            self.cf.FoodFormer(prod)
+            # self.prodManager.products.remove(prod)
+
+        self.prodManager.products = list()
+
+        # для каждого товара из PersonalAccount.xFood
+        # свойством self.qQuantity определяется количество
+        # выбранного товара
+        for prod in PersonalAccount.xFood:
+            self.cf.qQuantity = prod
+            prod["quantity"] = self.cf.qQuantity  # количество товара
+            prod["full_price"] = prod["price"] * prod["quantity"]
+            print(f'~~~~~ {prod} ~~~~~')
+
+
+        self.writeIN()  # Это ЗАПИСЬ в файл ==============================
+
+        print()
+
+        products = self.readFrom()  # Теперь чтение из файла =============
+
+        i = 0
+        for p in products:
+            print(f'{i} ' + p['name'])
+            i += 1
+
+       # ====================================================================
+
+    def DoIt(self):
+
+        self.prodManager.account = Account.addMoney('+')
+        print(f"personal account is open: {self.prodManager.account}")
+
+        go = True
+        while go:
+
+            # ================================================================
+            go = self.prodManager.DoIt()  # запуск менеджера
+            # по закупкам продуктов
+            # ================================================================
+            # При выходе из менеджера определён размер счёта клиента и список
+            # товаров, выбранных клиентом. По факту это корзина, в которую
+            # клиент накидал товаров. Эти товары из корзины оплачиваются
+            # клиентом из его текущего счёта
+
+            if go == True:
+                print('***********************************************')
+                print(f'current account {self.prodManager.account}')
+                print()
+
+                # состояние корзины: выбранные товары и записи о возможных отказах
+                print('products')
+                i = 0
+                j = 0
+                for prod in self.prodManager.products:
+                    if prod['add_rem'] == 'add':
+                        print(f' + {i}: {prod}')
+                        i += 1
+                    elif prod['add_rem'] == 'rem':
+                        print(f' - {j}: {prod}')
+                        j += 1
+
+                print('***********************************************')
+
+                self.FoodMaster()  # на основе элемента списка fmFood
+                # строится список PersonalAccount.xFood
+
+                fP = 0
+                for xf in PersonalAccount.xFood:
+                    fP += int(xf['full_price'])
+
+                print(f'full Price is {fP}, prodManager.account is {self.prodManager.account}')
+                self.prodManager.account = Account.minusMoney(fP)
+                print(f'\nfull Price :  account\n{fP}           {self.prodManager.account}')
+
+                if self.prodManager.account < 0:
+
+                    while True:
+                        answer = input("do you want to top up your account ? (yes/no) >> ")
+                        if answer == 'yes':
+                            self.prodManager.account = Account.addMoney('+')
+                            print(f'purchase is {self.prodManager.account}')
+                            break
+                        elif answer == 'no':
+                            go = False
+                            break
+                        else:
+                            print(f'{answer} is incorrect answer (yes/no) only')
+
+            else:
+                go = False
+        print("personal account is close")
+
+    # инициализация объекта, представляющего класс PersonalAccount.
+    # Нехилая получилась железяка ========================================
+
+    def __init__(self, nameSource, namePack):
+
+        self.fHandle = None
+        self.cf = ConvenienceFood()
+
+        self.prodManager = ProdManager(nameSource)  # ОДНОРАЗОВАЯ (!!!)
+                                            # загрузка списка продуктов
+
+        self.FPI = namePack  # информация для дескриптора self.fpi,
+                             # представляющего файл
+                             # "C:\\PythonDrom\\Tests_2022\\xxxTests\\pacFile.txt"
+
+    # ====================================================================
+
+
+def main(fileNameSource, fileNamePack):
+    pa = PersonalAccount(fileNameSource, fileNamePack)
+    pa.DoIt()
+
+if __name__ == '__main__':
+    main(fileNameSource, fileNamePack)
+
+
